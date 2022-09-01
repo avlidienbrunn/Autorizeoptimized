@@ -8,11 +8,11 @@ def isStatusCodesReturned(self, messageInfo, statusCodes):
     firstHeader = self._helpers.analyzeResponse(messageInfo.getResponse()).getHeaders()[0]
     if type(statusCodes) == list:
         for statusCode in statusCodes:
-            if statusCode in firstHeader:
+            if str(statusCode) in firstHeader:
                 return True
-    elif type(statusCodes) == str or type(statusCodes) == unicode:
+    else:
         # single status code
-        if statusCodes in firstHeader:
+        if str(statusCodes) in firstHeader:
                 return True
     return False
 

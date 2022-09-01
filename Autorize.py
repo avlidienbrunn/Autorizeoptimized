@@ -34,4 +34,4 @@ class BurpExtender(IBurpExtender, IHttpListener):
     # implement IHttpListener
     #
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):      
-        handle_message(self, toolFlag, messageIsRequest, messageInfo)
+        handle_message(self, toolFlag, bool(messageIsRequest), messageInfo)

@@ -17,6 +17,7 @@ from java.net import URL
 import re
 
 def tool_needs_to_be_ignored(self, toolFlag):
+    return False # Spider and target requests are not forwarded anyway?
     for i in range(0, self.IFList.getModel().getSize()):
         filterTitle = self.IFList.getModel().getElementAt(i).split(":")[0]
         if filterTitle == "Ignore spider requests":
@@ -28,7 +29,6 @@ def tool_needs_to_be_ignored(self, toolFlag):
         if filterTitle == "Ignore target requests":
             if (toolFlag == self._callbacks.TOOL_TARGET):
                 return True
-    return False
 
 def capture_last_cookie_header(self, messageInfo):
     cookies = get_cookie_header_from_message(self, messageInfo)
@@ -45,32 +45,35 @@ def capture_last_authorization_header(self, messageInfo):
 
 def valid_tool(self, toolFlag):
     return (toolFlag == self._callbacks.TOOL_PROXY or
-            (toolFlag == self._callbacks.TOOL_REPEATER and
-            self.interceptRequestsfromRepeater.isSelected()))
+            (toolFlag == "AUTORIZE") or # Internal requests, from "retest all" etc
+            (toolFlag == self._callbacks.TOOL_REPEATER and self.interceptRequestsfromRepeater.isSelected())
+            # TODO: Allow intruder?
+            )
 
-def handle_304_status_code_prevention(self, messageIsRequest, messageInfo):
-    should_prevent = False
+def handle_304_status_code_prevention(self, messageInfo):
     if self.prevent304.isSelected():
-        if messageIsRequest:
-            requestHeaders = list(self._helpers.analyzeRequest(messageInfo).getHeaders())
-            newHeaders = list()
-            for header in requestHeaders:
-                if not "If-None-Match:" in header and not "If-Modified-Since:" in header:
-                    newHeaders.append(header)
-                    should_prevent = True
-        if should_prevent:
-            requestInfo = self._helpers.analyzeRequest(messageInfo)
-            bodyBytes = messageInfo.getRequest()[requestInfo.getBodyOffset():]
-            bodyStr = self._helpers.bytesToString(bodyBytes)
-            messageInfo.setRequest(self._helpers.buildHttpMessage(newHeaders, bodyStr))
+        requestInfo = self._helpers.analyzeRequest(messageInfo)
+        rawHeaders = '\n'.join(requestInfo.getHeaders())
+
+        if not "If-None-Match:" in rawHeaders and not "If-Modified-Since" in rawHeaders:
+            return # Nothing to prevent
+
+        requestHeaders = list(requestInfo.getHeaders())
+        newHeaders = list()
+        for header in requestHeaders:
+            if not "If-None-Match:" in header and not "If-Modified-Since:" in header:
+                newHeaders.append(header)
+        bodyBytes = messageInfo.getRequest()[requestInfo.getBodyOffset():]
+        bodyStr = self._helpers.bytesToString(bodyBytes)
+        messageInfo.setRequest(self._helpers.buildHttpMessage(newHeaders, bodyStr))
 
 def message_not_from_autorize(self, messageInfo):
-    return not self.replaceString.getText() in self._helpers.analyzeRequest(messageInfo).getHeaders()
-
-def no_filters_defined(self):
-    return self.IFList.getModel().getSize() == 0
+    return not self.replaceString.getText() in self._helpers.analyzeRequest(messageInfo).getHeaders() # TODO: set flag on request instead. Maybe setComment?
 
 def message_passed_interception_filters(self, messageInfo):
+    if self.IFList.getModel().getSize() == 0:
+        return True
+   
     reqInfo = self._helpers.analyzeRequest(messageInfo)
     urlString = str(reqInfo.getUrl())
     reqBodyBytes = messageInfo.getRequest()[reqInfo.getBodyOffset():]
@@ -173,28 +176,29 @@ def message_passed_interception_filters(self, messageInfo):
     return True
 
 def handle_message(self, toolFlag, messageIsRequest, messageInfo):
-    if tool_needs_to_be_ignored(self, toolFlag):
-        return
-
-    capture_last_cookie_header(self, messageInfo)
+    capture_last_cookie_header(self, messageInfo) # TODO: automatic authentication detection
     capture_last_authorization_header(self, messageInfo)
 
-    if (self.intercept and valid_tool(self, toolFlag) or toolFlag == "AUTORIZE"):
-        handle_304_status_code_prevention(self, messageIsRequest, messageInfo)
+    if not self.intercept: # Interceptbutton clicked
+        return
 
-        if not messageIsRequest:
-            if message_not_from_autorize(self, messageInfo):
-                if self.ignore304.isSelected():
-                    if isStatusCodesReturned(self, messageInfo, ["304", "204"]):
-                        return
+    if not valid_tool(self, toolFlag): # Whitelist PROXY and REPEATER (if checked)
+        return
 
-                if no_filters_defined(self):
-                    checkAuthorization(self, messageInfo,
-                    self._helpers.analyzeResponse(messageInfo.getResponse()).getHeaders(),
-                                            self.doUnauthorizedRequest.isSelected())
-                else:
-                    if message_passed_interception_filters(self, messageInfo):
-                        checkAuthorization(self, messageInfo,self._helpers.analyzeResponse(messageInfo.getResponse()).getHeaders(),self.doUnauthorizedRequest.isSelected())
+    #if tool_needs_to_be_ignored(self, toolFlag): # Blacklist SPIDER/PROXY/TARGET. But spider/target not in whitelist anyway?
+    #    return
+
+
+    if messageIsRequest:
+        handle_304_status_code_prevention(self, messageInfo)
+    else:
+        if message_not_from_autorize(self, messageInfo):
+            if self.ignore304.isSelected():
+                if isStatusCodesReturned(self, messageInfo, ["304", "204"]):
+                    return
+
+            if message_passed_interception_filters(self, messageInfo):
+                checkAuthorization(self, messageInfo, self._helpers.analyzeResponse(messageInfo.getResponse()).getHeaders(), self.doUnauthorizedRequest.isSelected())
 
 def send_request_to_autorize(self, messageInfo):
     if messageInfo.getResponse() is None:

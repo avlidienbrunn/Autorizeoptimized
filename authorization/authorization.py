@@ -272,7 +272,7 @@ def auth_enforced_via_enforcement_detectors(self, filters, requestResponse, andO
 def checkBypass(self, oldStatusCode, newStatusCode, oldContent,
                  newContent, filters, requestResponse, andOrEnforcement):
     if oldStatusCode == newStatusCode:
-        auth_enforced = 0
+        auth_enforced = False
         if len(filters) > 0:
             auth_enforced = auth_enforced_via_enforcement_detectors(self, filters, requestResponse, andOrEnforcement)
         if auth_enforced:
@@ -285,7 +285,7 @@ def checkBypass(self, oldStatusCode, newStatusCode, oldContent,
         return self.ENFORCED_STR
 
 def checkAuthorization(self, messageInfo, originalHeaders, checkUnauthorized):
-    message = makeMessage(self, messageInfo, True, True)
+    message = makeMessage(self, messageInfo, True, True) # Applies replacement logic for auth/unauth state
     requestResponse = makeRequest(self, messageInfo, message)
     newResponse = requestResponse.getResponse()
     analyzedResponse = self._helpers.analyzeResponse(newResponse)

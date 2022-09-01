@@ -18,7 +18,7 @@ class Initiator():
         self._extender = extender
     
     def init_constants(self):
-        self.contributors = ["Federico Dotta", "mgeeky", "Marcin Woloszyn", "jpginc", "Eric Harris"]
+        self.contributors = ["Federico Dotta", "mgeeky", "Marcin Woloszyn", "jpginc", "Eric Harris", "avlidienbrunn"]
         self._extender.version = 1.5
         self._extender._log = ArrayList()
         self._extender._lock = Lock()
@@ -76,5 +76,6 @@ class Initiator():
         print("""Thank you for installing Autorize v{} extension
 Created by Barak Tawily
 Contributors: {}
+Modified by: avlidienbrunn
 
-Github:\nhttps://github.com/Quitten/Autorize""".format(self._extender.version, ", ".join(self.contributors)))
+Github:\nhttps://github.com/avlidienbrunn/Autorizeoptimized""".format(self._extender.version, ", ".join(self.contributors)))
